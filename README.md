@@ -1,105 +1,15 @@
-# User Onboarding & Lead Distribution Flow
-
-```mermaid
 flowchart TD
-    Start([START])
-    Start --> A1[User Enters Bot]
-    A1 --> A2[/start command (handle_start_command)]
-    A2 --> A3[Parse Payload, Set Role, Clear State]
-    A3 --> A4[Is Partner? -> Yes → partner_select_tier | No → investor_agreement]
-    A4 --> A5[Bot Asks: “Please select your role”]
+subgraph Onboarding
+Start([START])
+Start --> A1[User Enters Bot]
+A1 --> A2["start command handle_start_command"]
+A2 --> A3[Parse Payload, Set Role, Clear State]
+A3 --> SaveState[Save State to Google Sheets]
+SaveState --> B1[Send Market Selection Buttons
+- Investor | Partner]
+B1 -->|Investor| C1[Ask Budget in Euro]
+B1 -->|Partner| C2[Send Partner Options
+- Agent | Developer]
+end
 
-    A5 --> B1[Investor]
-    A5 --> B2[Agent]
-    A5 --> B3[Developer]
-
-    %% ----- Developer Path (mirrors Agent) -----
-    B3 --> C1[Developer Flow (Same as Agent)]
-    C1 --> C2[Success Fee Agreement (5–7%)]
-
-    %% ----- Agent Path -----
-    B2 --> D1[user_state[role] = "Real Estate Agent (licensed)"]
-    D1 --> D2[Partner Tier Selection]
-    D2 --> D3[Standard: $120 | Verified: $150 | Institutional: $300]
-    D3 --> D4[User Selects Tier]
-    D4 --> D5[Validate Tier → Save to user_state]
-    D5 --> D6[Partner Payment Confirmation]
-    D6 --> D7[Upload Photo → Save to Drive]
-    D7 --> D8[Generate Invoice → Save ID]
-    D8 --> D9[Partner Category Selection]
-    D9 --> D10[User Selects Category]
-    D10 --> D11[Partner Email → Validate → Save]
-    D11 --> D12[License Upload → Save to Drive]
-    D12 --> D13[Trigger DocuSign: Success Fee Agreement (30%)]
-    D13 --> D14[Admin Review: Approve / Modify / Reject]
-    D14 --> D15[Agent Signs “Signed”]
-    D15 --> D16[Save PDF → CRM Update → Email Agent]
-    D16 --> D17[Partner Registration Complete → partner_code]
-    D17 --> D18[user_state Cleared]
-
-    %% ----- Investor Path -----
-    B1 --> E1[user_state[step] = investor_agreement]
-    E1 --> E2[Bot: Reply “I Agree”]
-    E2 --> E3[Validate → Step = referral]
-    E3 --> E4[Bot Asks: Referral Code]
-    E4 --> E5[Save Code or “None”]
-    E5 --> E6[Investor Email → Validate → Save]
-    E6 --> E7[Phone Number → Validate → Save]
-    E7 --> E8[Role Selection → “Investor”]
-    E8 --> E9[Region Selection]
-    E9 --> E10[Purpose Selection]
-    E10 --> E11[Budget Selection]
-    E11 --> E12[Investment Type Selection]
-    E12 --> E13[Notes]
-    E13 --> E14[Save to LEADS → Create CRM Deal]
-    E14 --> E15[KYC: Upload ID/POF → Save to Drive]
-    E15 --> E16[Admin Notified for KYC]
-    E16 --> E17[Auto Funnel Assignment (≥€500K = Premium)]
-    E17 --> E18[Activate 3-Day Trial (One-Time per Telegram ID)]
-    E18 --> E19[Trigger DocuSign: Referral Agreement (2–3%)]
-    E19 --> E20[Save PDF → Email → CRM Update]
-    E20 --> E21[Payment Flow (JCC)]
-    E21 --> E22[Webhook or Manual Approval]
-    E22 --> E23[Teaser Delivery & Access Control]
-
-    %% ----- Teaser Watermarking -----
-    E23 --> F1[Filter Teasers: Country, Budget, Type]
-    F1 --> F2[Watermark Generated:
-        - Full Name
-        - Email
-        - Access Date
-        - Unique ID]
-    F2 --> F3[Log Views to Google Sheets]
-    F3 --> F4[Admin Notified]
-
-    %% ----- Partner Property Submission -----
-    D18 --> G1[Partner Uploads Property → Bot or Form]
-    G1 --> G2[Admin Creates Teaser → Adds to Project Pool]
-
-    %% ----- Lead Distribution -----
-    G2 --> H1[Assign Lead: Region, Budget, Purpose]
-    H1 --> H2[Update LEADS & Pipedrive]
-    H2 --> H3[Agent Notified → 60min Deadline]
-
-    %% ----- Admin Panel -----
-    H3 --> I1[Admin Panel Features:
-        - Approve/Reject Commission
-        - Hide Leads
-        - Upload Teasers
-        - Edit Templates
-        - Pause Delivery
-        - View Logs
-        - Add Countries]
-    I1 --> I2[Admin Notified of All Actions]
-
-    %% ----- Lead Timeout -----
-    I2 --> J1[Check Every 5 min]
-    J1 --> J2[If Unaccepted > 60 min:
-        - Mark Timeout
-        - +1 Missed Leads
-        - ≥3 Missed = Disqualified
-        - Pipedrive → LOST
-        - Notify Admin]
-
-    J2 --> End([END OF FLOW])
-```
+%% Agent Path subgraph Agent Path C2 -->|Agent| D1[user_state role = "Real Estate Agent (licensed)"] D1 --> D2[Partner Tier Selection] D2 --> D3[Standard $120 | Verified $150 | Institutional $300] D3 --> D4[User Selects Tier] D4 --> D5[Validate Tier --> Save to user_state] D5 --> SaveState2[Save to Google Sheets] SaveState2 --> Trial_Partner[Trial Demo Leads 1-2 One-Time] Trial_Partner --> D6[Partner Payment Confirmation] D6 --> JCC_Partner[JCC Payment Gateway <br> - Generate Payment Link <br> - Track Transaction ID] JCC_Partner --> JCC_Webhook_Partner[JCC Webhook Receiver] JCC_Webhook_Partner --> PaymentCheck_Partner{Payment Success?} PaymentCheck_Partner -->|Failed| PaymentRetry_Partner[Retry after 24hrs <br> Max 3 attempts] PaymentCheck_Partner -->|Success| D7[Upload Payment Proof --> Save to Drive] D7 --> D8[Generate Invoice --> Save ID] D8 --> D9[Partner Category Selection] D9 --> D10[User Selects Category] D10 --> D11[Partner Email --> Validate --> Save] D11 --> D12[License Upload --> Save to Drive] D12 --> FolderStructure_Agent[Save to Drive: <br> /Agents/{user_id}/license/] FolderStructure_Agent --> SelectTemplate_Agent[Select Template: Success Fee Agreement 30%] SelectTemplate_Agent --> D13[Trigger DocuSign: Success Fee Agreement 30%] D13 --> D13a[DocuSign OAuth: Secure Login & Auto-Fill <br> - Name <br> - Email <br> - Commission 30%] D13a --> PopulateFields[Populate Dynamic Fields <br> - Admin Override for Commission] PopulateFields --> D13b[Admin Preview: <br> - Role: Agent <br> - Default Commission: 30% <br> - Modify / Approve / Reject] D13b -->|Reject| RejectContract1[Notify Agent: Contract Rejected <br> - Via Telegram/Email] D13b -->|Approve/Modify| D14[Admin Sends DocuSign Link] D14 --> D15[Agent Signs "Signed"] D15 --> DocuSignWebhook[DocuSign Webhook Receiver] DocuSignWebhook --> WD1[Webhook Triggered After Signature] WD1 --> WD2[Save Signed PDF to Google Drive] WD2 --> FolderStructure_Agent_Signed[Save to: /Agents/{user_id}/contracts/] FolderStructure_Agent_Signed --> WD3[Update Pipedrive CRM] WD3 --> WD4[Email Signed PDF to Agent with Thank You Message] WD4 --> WD5[Notify Admin via Bot or Email] WD5 --> D16[Partner Registration Complete --> partner_code] D16 --> D17[user_state Cleared] D17 --> SaveState3[Update Google Sheets] end %% Developer Path subgraph Developer Path C2 -->|Developer| C3[user_state role = "Developer"] C3 --> Dev_Tier[Partner Tier Selection] Dev_Tier --> Dev_Payment[Same Payment Flow as Agent] Dev_Payment --> JCC_Developer[JCC Payment Gateway] JCC_Developer --> SelectTemplate_Dev[Select Template: Success Fee Agreement 5-7%] SelectTemplate_Dev --> D13_Dev[Trigger DocuSign: Success Fee Agreement 5-7%] D13_Dev --> Dev_Commission[Admin Preview: <br> - Role: Developer <br> - Default Commission: 5-7%] Dev_Commission --> FolderStructure_Dev[Save to: /Developers/{user_id}/] end %% Investor Path subgraph Investor Path C1 --> D1_Investor[Wait for Budget Input] D1_Investor --> E1{Valid Number?} E1 -->|No| ErrorInput E1 -->|Yes| BudgetValidate[Validate Budget >=500K for Premium] BudgetValidate --> E2[Store Budget in Database] E2 --> SaveState4[Save to Google Sheets] SaveState4 --> E3[Send Market Type Buttons <br> - Open Market | Premium Market] E3 --> E4{Which Market?} %% Open Market Flow E4 -->|Open Market| F1_Open[Investor Type: Retail Investor <br> - Budget <500K Euro] F1_Open --> F2_Open[Send Trial Teaser One-Time <br> - TRIAL SAMPLE Watermark] F2_Open --> F3_Open[Send Message: <br> - "You can request more access via admin"] F3_Open --> E5 %% Premium Market Flow E4 -->|Premium Market| F1_Premium{Budget >=500K Euro?} F1_Premium -->|No| F2_Premium_Fail[Redirect to Open Market Flow] F2_Premium_Fail --> F1_Open F1_Premium -->|Yes| F2_Premium[Investor Type: Premium Investor <br> - Budget >=500K Euro] F2_Premium --> NDA_Trigger[Trigger NDA DocuSign] NDA_Trigger --> NDAReminder[If NDA Not Signed in 2 Days <br> - Send Reminder via Telegram/Email] NDA_Trigger --> NDA_Admin[Admin Preview: <br> - Approve / Reject NDA] NDA_Admin -->|Reject| RejectNDA[Notify Investor: NDA Rejected <br> - Via Telegram/Email] NDA_Admin -->|Approve| AdminSkipNDA{Admin Skip NDA?} AdminSkipNDA -->|Yes| KYC_Premium AdminSkipNDA -->|No| WaitForSign[NDA Signed --> Proceed] WaitForSign --> KYC_Premium[Request KYC/POF Upload --> Save to Drive] KYC_Premium --> FolderStructure_KYC[Save to: /Investors/{user_id}/kyc/] FolderStructure_KYC --> KYCProcess[Process KYC/POF <br> - Verify Documents] KYCProcess --> Admin_KYC[Admin Notified for KYC Review <br> - Via Telegram/Email] Admin_KYC --> Payment_Premium[Premium Membership Payment Required] Payment_Premium --> JCC_Premium[JCC Payment Gateway <br> - Generate Payment Link <br> - Track Transaction ID] JCC_Premium --> AdminSkipPayment{Admin Skip Payment?} AdminSkipPayment -->|Yes| E5 AdminSkipPayment -->|No| JCC_Webhook[JCC Webhook Receiver] JCC_Webhook --> PaymentCheck{Success?} PaymentCheck -->|Success| PaymentStatus[Update Payment Status: Success] PaymentCheck -->|Failed| PaymentRetry[Retry after 24hrs <br> Max 3 attempts] PaymentRetry --> NotifyUser[Notify: Payment Not Received <br> - Via Telegram/Email] PaymentCheck --> Reminder2[If Payment Not Made in 2 Days <br> - Send Reminder via Telegram/Email] PaymentStatus --> E5 %% Referral Agreement Path subgraph Referral Agreement Path E5 --> E6[Bot: Reply "I Agree" to Investor Agreement] E6 --> E7[Validate --> Step = referral] E7 --> E8[Bot Asks: Referral Code] E8 --> E9[Save Code or "None"] E9 --> E10[Investor Email --> Validate --> Save] E10 --> E11[Phone Number --> Validate --> Save] E11 --> E12[Role Selection --> "Investor"] E12 --> E13[Region Selection <br> - Greece | Portugal | Cyprus | UAE/Dubai | France | Other] E13 --> E14[Purpose Selection <br> - Real Estate Investment | Business Investment <br> - Golden Visa/Residency | Citizenship | Tax Optimization] E14 --> E15[Budget Range Selection <br> - Under €250K | €250K-€500K | €500K-€1M | €1M+] E15 --> E16[Investment Type Selection] E16 --> TypeCheck{Selected Type?} TypeCheck -->|Real Estate| F1a[Filter Residential Projects] TypeCheck -->|Hotel/Hospitality| F1b[Filter Hotel Projects] TypeCheck -->|Development Projects| F1c[Filter Development Projects] TypeCheck -->|Funds/Structured| F1d[Filter Fund Projects] F1a --> E17 F1b --> E17 F1c --> E17 F1d --> E17 E17[Notes/Additional Info] E17 --> E18[Save to LEADS --> Create CRM Deal] E18 --> E19[Trigger DocuSign: Referral Agreement 2-3%] E19 --> SelectTemplate_Investor[Select Template: Referral Agreement 2-3%] SelectTemplate_Investor --> E19a[DocuSign OAuth: Secure Login & Auto-Fill <br> - Name <br> - Email <br> - Commission 2-3%] E19a --> PopulateFields2[Populate Dynamic Fields] PopulateFields2 --> E19b[Admin Preview: <br> - Role: Investor <br> - Default Commission: 2-3% <br> - Modify / Approve / Reject] E19b -->|Reject| RejectContract2[Notify Investor: Contract Rejected <br> - Via Telegram/Email] E19b -->|Approve/Modify| E20[Admin Sends DocuSign Link] E20 --> E21[Investor Signs "Signed"] E21 --> DocuSignWebhook2[DocuSign Webhook] DocuSignWebhook2 --> WD6[Webhook Triggered After Signature] WD6 --> WD7[Save Signed PDF to Google Drive] WD7 --> FolderStructure_Investor[Save to: /Investors/{user_id}/contracts/] FolderStructure_Investor --> WD8[Update Pipedrive CRM] WD8 --> WD9[Email Signed PDF to Investor with Thank You] WD9 --> WD10[Notify Admin via Bot or Email] end %% Common Investor Flow WD10 --> NDA_Check{Has NDA Been Signed?} NDA_Check -->|No| NDA_Trigger NDA_Check -->|Yes| E22 E22[Activate 3-Day Trial One-Time per Telegram ID] E22 --> T1[Set Trial Flag in Google Sheet <br> - trial_start: timestamp <br> - trial_used: TRUE] T1 --> T2[Track Timestamp] T2 --> T3[Auto-Revoke Access After 3 Days] T3 --> CheckFlag[Check Previous Access Attempts <br> - Google Sheet] CheckFlag -->|Already Used| BlockTrial[Notify: Trial Already Used <br> - Via Telegram/Email] BlockTrial --> EscalateRequest[Escalate to Admin for Review] EscalateRequest --> AdminEscalation[Admin Reviews Escalation <br> - Notified via Telegram/Email] AdminEscalation -->|Approved| E23 AdminEscalation -->|Denied| NotifyDenied[Notify User: Access Denied <br> - Via Telegram/Email] CheckFlag -->|Not Used| ReRequest[User Requests More Teasers] ReRequest --> AdminApproval[Admin Reviews Request <br> - Notified via Telegram/Email] AdminApproval -->|Approved| E23 AdminApproval -->|Denied| NotifyDenied E23 --> UnlockTrial[Unlock Trial Access] UnlockTrial --> PW1[Update Access Status] PW1 --> PW2[Update CRM and Google Sheets] PW2 --> PW3[Manual Override Available: <br> - Admin Notified via Telegram/Email <br> - Trigger via Admin Panel/Google Sheet Checkbox <br> - Actions: Force Unlock/Skip Payment] PW3 --> E24[Teaser Delivery & Access Control] end %% Teaser Watermarking subgraph Teaser Watermarking & Delivery E24 --> PM_Check{Is Premium Investor?} PM_Check -->|Yes| F2[Access Exclusive Premium Teasers <br> - Full Data] PM_Check -->|No| F3[Access Open Market Teasers <br> - Limited Sample] F2 --> SelectTeaserType[Select Teaser: Full Data] F3 --> SelectTeaserType2[Select Teaser: TRIAL SAMPLE] SelectTeaserType --> F1[Filter Teasers by Criteria] SelectTeaserType2 --> F1 F1 --> TeaserCategories[Filter by: <br> - Country: Greece/Cyprus/Portugal/UAE/France/Other <br> - Budget: Under €250K/€250-500K/€500K-1M/€1M+ <br> - Type: Residential/Commercial/Hotel/Development/Funds <br> - Purpose: Investment/Golden Visa/Tax/Business] TeaserCategories --> WatermarkGen[Generate Dynamic Watermark with PyPDF2/Pillow] WatermarkGen --> WM1[Overlay Watermark: <br> - Full Name <br> - Email <br> - Access Date & Time <br> - Unique User ID <br> - IP Address (EU Compliance) <br> - "TRIAL SAMPLE" for Open Market <br> - "CONFIDENTIAL" for Premium] WM1 --> WM2[Send Watermarked Teaser via Telegram] WM2 --> WM3[Log Access to Google Sheets with Timestamp] WM3 --> LogTeaserID[Log Details: <br> - Teaser ID <br> - Project Name <br> - Timestamp <br> - User ID <br> - View Status <br> - Store in Google Sheets/CRM] LogTeaserID --> CheckView[Check if Teaser Opened] CheckView -->|No| SendFollowUp[Reminder to View Teaser <br> After 48 hours <br> - Via Telegram/Email] CheckView -->|Yes| F4[Track Engagement] F4 --> AdminNotifyTeaser[Admin Notified: <br> - User viewed teaser <br> - Which project <br> - Engagement time] end %% Partner Property Submission subgraph Property Submission & Teaser Creation SaveState3 --> G1[Partner Uploads Property <br> - Via Bot or Google Form] G1 --> G2[Admin Reviews Property] G2 --> G3[Admin Creates Teaser <br> - Uses Template <br G2 --> G3[Admin Creates Teaser <br> - Uses Template <br> - Adds to Project Pool] G3 --> G4[Categorize Teaser: <br> - Country <br> - Budget Range <br> - Property Type <br> - Investment Purpose] G4 --> G5[Upload to System <br> - Store in Google Drive <br> - Update Database] end %% Lead Distribution subgraph Lead Distribution & Assignment G5 --> H1[New Lead Arrives] H1 --> H2[Auto-Assign Based on: <br> - Region Match <br> - Budget Match <br> - Purpose Match <br> - Agent Availability] H2 --> H3[Round-Robin Assignment <br> - Skip Disqualified Agents <br> - Check Active Status] H3 --> H4[Update LEADS Sheet & Pipedrive] H4 --> H5[Agent Notified <br> - 60min Response Deadline <br> - Via Telegram + Email] H5 --> LeadDeadline[Start 60min Timer] LeadDeadline --> LeadResponse{Agent Responded?} LeadResponse -->|Yes| H6[Mark Lead Accepted <br> - Update Status <br> - Notify Admin] LeadResponse -->|No| H7[Mark Timeout <br> - +1 Missed Lead Count] H7 --> CheckMissed{Missed >= 3?} CheckMissed -->|Yes| DisqualifyAgent[Disqualify Agent <br> - Update Status <br> - Remove from Pool] CheckMissed -->|No| R1[Reassign Lead <br> - Next Agent in Region <br> - Reset 60min Timer] DisqualifyAgent --> R1 R1 --> H5 end %% Admin Panel subgraph Admin Panel & Controls AdminNotifyTeaser --> I1[Admin Panel Access <br> - Google Sheet Dashboard <br> - Telegram Commands] I1 --> AP1[Available Commands: <br> - /override_commission [user_id] [new%] <br> - /lock_lead [lead_id] <br> - /reset_trial [user_id] <br> - /unlock_teaser [user_id] [teaser_id] <br> - /disqualify_agent [agent_id] <br> - /add_country [country_name] <br> - /pause_delivery [user_id]] AP1 --> AP2[Google Sheet Controls: <br> - Commission Override Column <br> - Lead Visibility Toggle <br> - Trial Reset Checkbox <br> - Payment Skip Override <br> - Agent Status Management] AP2 --> HideLeads[Hide Specific Leads <br> - Admin Lock Feature <br> - Remove from Open Market <br> - Keep in Premium Only] HideLeads --> UploadTeasers[Upload New Teaser Files <br> - Drag & Drop Interface <br> - Auto-Categorization <br> - Bulk Upload Support] UploadTeasers --> EditTemplates[Edit Contract Templates <br> - Commission % Ranges <br> - Legal Terms <br> - Language Options] EditTemplates --> ViewLogs[View All Logs: <br> - Document Signatures <br> - Teaser Access <br> - Payment History <br> - Agent Performance] ViewLogs --> AdminCommands[Process Telegram Commands] AdminCommands --> AP3[Execute Command: <br> - Update Database <br> - Notify Affected Users <br> - Log Admin Action] AP3 --> AP4[Admin Action Log: <br> - Timestamp <br> - Admin ID <br> - Action Type <br> - Target User/Lead <br> - Previous/New Values] AP4 --> I2[Send Confirmation <br> - To Admin via Telegram <br> - Update Dashboard] end %% Automated Monitoring & Triggers subgraph Automated Monitoring & Triggers I2 --> J1[Cron Job: Check Every 5 min] J1 --> J2[Scan All Active Leads] J2 --> J3{Any Timeouts?} J3 -->|Yes| J4[Process Timeout: <br> - Mark Lead as Timed Out <br> - Increment Agent Missed Count <br> - Update Pipedrive to LOST] J3 -->|No| J5[Check Trial Expirations] J4 --> J6{Agent Missed >= 3?} J6 -->|Yes| J7[Auto-Disqualify Agent <br> - Set Status: Disqualified <br> - Remove from Active Pool <br> - Notify Agent & Admin] J6 -->|No| J8[Reassign Lead via Round-Robin] J7 --> J8 J8 --> J9[Notify New Agent <br> - Reset 60min Timer] J5 --> J10{Any Expired Trials?} J10 -->|Yes| J11[Revoke Trial Access <br> - Update Database <br> - Notify User: Trial Ended] J10 -->|No| J12[Check Payment Reminders] J12 --> J13{Pending Payments > 48hrs?} J13 -->|Yes| J14[Send Payment Reminder <br> - Via Telegram + Email] J13 -->|No| ContinueMonitoring[Continue Monitoring] end %% Error Handling subgraph Error Handling & Recovery ErrorInput[Invalid Input Detected <br> - Budget Format <br> - Email Validation <br> - Phone Format] --> NotifyError[Show Error Message <br> - Specific Error Details <br> - Example of Correct Format] NotifyError --> ReturnStep[Return to Previous Step <br> - Maintain User State] Timeout[User Session Timeout <br> - No Activity 30min] --> SaveProgress[Save Current Progress <br> - Store in Database] SaveProgress --> UserReminderTimeout[Send Reminder After 24hrs: <br> "Continue where you left off?" <br> - Include Resume Link] UserReminderTimeout --> NotifyAdminTimeout[Log Dropout: <br> - User ID <br> - Last Step <br> - Timestamp] SystemError[System Error Detected] --> LogSystemError[Log to Error Sheet: <br> - Error Type <br> - Stack Trace <br> - User Context] LogSystemError --> NotifyAdminError[Alert Admin: CRITICAL <br> - Via Email + Telegram <br> - Include Error Details] NotifyAdminError --> FallbackMode[Activate Fallback: <br> - Basic Functionality Only <br> - Queue Actions for Later] end %% Compliance & Legal subgraph Legal Compliance & Data Protection AP4 --> L1[GDPR Compliance Check: <br> - Data Retention Policy <br> - User Consent Tracking <br> - Right to Delete] L1 --> L2[Document Audit Trail: <br> - All Signatures <br> - Timestamps <br> - IP Addresses <br> - User Actions] L2 --> L3[Teaser Access Log: <br> - View Time <br> - Download Attempts <br> - Share Attempts <br> - Screenshot Detection] L3 --> L4[Legal Archive: <br> - 7 Year Retention <br> - Encrypted Storage <br> - Access Controls] L4 --> L5[Compliance Reports: <br> - Monthly Summary <br> - User Activity <br> - Document Status] end %% Payment Processing subgraph JCC Payment Integration JCC_Webhook --> PG1[Validate Webhook Signature] PG1 --> PG2{Valid Signature?} PG2 -->|No| PG3[Reject & Log Security Alert] PG2 -->|Yes| PG4[Process Payment Data] PG4 --> PG5[Update Payment Status] PG5 --> PG6[Generate Receipt] PG6 --> PG7[Email Receipt to User] PG7 --> PG8[Update Access Permissions] PG8 --> PG9[Notify Admin: Payment Received] end %% Analytics & Reporting subgraph Analytics Dashboard L5 --> AN1[Generate Analytics: <br> - User Conversion Rate <br> - Document Completion Rate <br> - Average Response Time <br> - Revenue by Tier] AN1 --> AN2[Agent Performance: <br> - Leads Accepted <br> - Response Time <br> - Success Rate <br> - Commission Earned] AN2 --> AN3[Investor Metrics: <br> - Teasers Viewed <br> - Conversion to Premium <br> - Investment Interests <br> - Geographic Distribution] AN3 --> AN4[Export Reports: <br> - PDF Format <br> - Excel Download <br> - Email Schedule <br> - API Access] end %% End States L5 --> End([END OF FLOW]) AN4 --> End ContinueMonitoring --> End RejectNDA --> End NotifyUser --> End NotifyDenied --> End RejectContract1 --> End RejectContract2 --> End ReturnStep --> End NotifyAdminTimeout --> End FallbackMode --> End PG3 --> End PG9 --> End H6 --> End J14 --> End SendFollowUp --> End
